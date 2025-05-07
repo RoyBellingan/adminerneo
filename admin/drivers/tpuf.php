@@ -21,6 +21,7 @@ if (isset($_GET["tpuf"])) {
         var $table;
         var $url;
         var $key;
+        var $passHash = null;
 
         var $httpHeaders = [];
 
@@ -112,7 +113,7 @@ if (isset($_GET["tpuf"])) {
 		function connect($server, $username, $password) {
             $this->url = $server;
             $this->key = $password;
-            
+            $this->passHash = hash('sha256', $password);
 			// $query = [
             //     "top_k" => 1,
             //     "include_attributes" => ["id"]
@@ -372,7 +373,7 @@ if (isset($_GET["tpuf"])) {
 	function tables_list() {
 		global $connection;
 		
-		$cache_key = 'tpuf_namespaces_' . $connection->url;
+		$cache_key = 'tpuf_namespaces_' . $connection->url . '_' . $connection->passHash;
 		$cached_result = apcu_fetch($cache_key, $success);
 		
 		if ($success && $cached_result) {
@@ -450,7 +451,7 @@ if (isset($_GET["tpuf"])) {
 		$url = $connection->url . "/v1/namespaces/" . $table . "/schema";
 		
 		try {
-			$cache_key = 'tpuf_schema_' . $table . '_' . $connection->url;
+			$cache_key = 'tpuf_schema_' . $table . '_' . $connection->url . '_' . $connection->passHash;
 			$cached_result = apcu_fetch($cache_key, $success);
 			
 			if ($success && $cached_result) {
