@@ -544,7 +544,45 @@ if (isset($_GET["tpuf"])) {
 }
 
 function embed_v1($val) {
-    return $val;
+    include __DIR__ . '/token.php';
+    
+    $headers = [
+        'Content-Type' => 'application/json',
+        'Authorization' => 'Bearer ' . $OPENAI_API_KEY
+    ];
+    
+    $url = "https://api.openai.com/v1/embeddings";
+    $data = [
+        'model' => 'text-embedding-3-large',
+        'dimensions' => 1536,
+        'input' => [$val]
+    ];
+    
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array_map(function($k, $v) { return "$k: $v"; }, array_keys($headers), $headers));
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
+    if ($http_code !== 200) {
+        throw new \Exception("HTTP error: " . $http_code . " " . $response);
+    }
+    
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($error) {
+        throw new \Exception("CURL error: " . $error);
+    }
+    
+    $result = json_decode($response, true)['data'][0]['embedding'];
+
+    return $result;
 }
 
 function embed_v2($val) {
