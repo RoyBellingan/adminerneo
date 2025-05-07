@@ -43,7 +43,7 @@ if (isset($_GET["tpuf"])) {
             $response = curl_exec($ch);
             $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $info = curl_getinfo($ch);
-            
+
             if ($http_code !== 200) {
                 die("HTTP error for $url: " . $http_code . " " . $response . "\n  for query $content <xmp>" . print_r(debug_backtrace(), true) . "</xmp>");
             }
@@ -80,8 +80,14 @@ if (isset($_GET["tpuf"])) {
 							$return[$key][$attrKey] = $attrValue;
 						}
 						unset($return[$key]['attributes']);
-                        // Sort attributes in alphabetical order
-						ksort($return[$key]);
+                        ksort($return[$key]);
+                        
+						// If dist column is present, move it to the first position
+						if (isset($return[$key]['dist'])) {
+							$dist = $return[$key]['dist'];
+							unset($return[$key]['dist']);
+							$return[$key] = ['dist' => $dist] + $return[$key];
+						}
 					}
 				}
 			}
@@ -239,6 +245,19 @@ if (isset($_GET["tpuf"])) {
                 $op = $where["op"];
                 $val = $where["val"];
                 if ($col == "") {
+                    continue;
+                }
+                if($col == "vector") {
+                    if($op == "Eq"){
+                        $query["vector"] = json_decode($val, true);
+                    }else if($op == "EmbedV1"){
+                        $query["vector"] = embed($val,1);
+                    }else if($op == "EmbedV2"){
+                        $query["vector"] = embed($val,2);
+                    }else{
+                        die("unsupported operator for vector: $op");
+                    }
+                    $query["distance_metric"] = "cosine_distance";
                     continue;
                 }
 
@@ -515,12 +534,65 @@ if (isset($_GET["tpuf"])) {
 			'types' => $types,
 			'structured_types' => $structured_types,
 			'unsigned' => [],
-			'operators' => ["Eq", "NotEq", "In", "NotIn", "Lt", "Lte", "Gt", "Gte", "Glob", "NotGlob", "IGlob", "NotIGlob", "ContainsAllTokens"],
-			'operator_like' => "LIKE %%",
+			'operators' => ["Eq", "NotEq", "In", "NotIn", "Lt", "Lte", "Gt", "Gte", "Glob", "NotGlob", "IGlob", "NotIGlob","EmbedV1","EmbedV2", "ContainsAllTokens"],
 			'functions' => [],
 			'grouping' => [],
 			'edit_functions' => [],
 			"system_databases" => ["INFORMATION_SCHEMA", "information_schema", "system"],
 		];
 	}
+}
+
+function embed_v1($val) {
+    return $val;
+}
+
+function embed_v2($val) {
+    include __DIR__ . '/token.php';
+    
+    $headers = [
+        'Content-Type' => 'application/json',
+        'Authorization' => 'Bearer ' . $CLOUDFLARE_API_KEY
+    ];
+    
+    $url = "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/ai/run/@cf/baai/bge-m3";
+    $data = [
+        'text' => [$val]
+    ];
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array_map(function($k, $v) { return "$k: $v"; }, array_keys($headers), $headers));
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
+    if ($http_code !== 200) {
+        throw new \Exception("HTTP error: " . $http_code . " " . $response);
+    }
+    
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($error) {
+        throw new \Exception("CURL error: " . $error);
+    }
+    
+    $result = json_decode($response, true)['result']["data"][0];
+
+    return $result;
+}
+
+function embed($val, $version = 1) {
+    switch($version) {
+        case 1:
+            return embed_v1($val);
+        case 2:
+            return embed_v2($val);
+        default:
+            die("unsupported version: $version");
+    }
 }

@@ -309,6 +309,26 @@ if (!$columns && support("table")) {
 		}
 	}
 	$result = $driver->select($TABLE, $select2, $where, $group2, $order, $limit, $page, true);
+	if($jush == "turbopuffer"){
+		// Add distance column to the result set if vector search was performed
+		if (isset($result->columns[0]) && $result->columns[0] == "dist") {
+			$fields["dist"] = ["field" => "dist", "full_type" => "float", "type" => "float", "privileges" => ["select" => 1]];
+		}
+	}
+	// Sort fields array to put 'dist' at the beginning if it exists
+	if (isset($fields["dist"])) {
+		$sorted_fields = ["dist" => $fields["dist"]];
+		foreach ($fields as $key => $value) {
+			// Hide vector column from display
+			if ($key === "vector") {
+				continue;
+			}
+			if ($key !== "dist") {
+				$sorted_fields[$key] = $value;
+			}
+		}
+		$fields = $sorted_fields;
+	}
 
 	if (!$result) {
 		echo "<p class='error'>" . error() . "\n";
