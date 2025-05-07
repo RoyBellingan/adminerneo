@@ -4,6 +4,14 @@ namespace AdminNeo;
 
 add_driver("tpuf", "TPUF (alpha)");
 
+function trace() {
+    $trace = array_map(function($call) {
+        $file = basename($call['file']); // Get just the filename without path
+        return sprintf("%s:%d %s()", $file, $call['line'], $call['function']);
+    }, array_slice(debug_backtrace(), 0, -1));
+    return $trace;
+}
+
 if (isset($_GET["tpuf"])) {
 	define("AdminNeo\DRIVER", "tpuf");
 
@@ -45,14 +53,14 @@ if (isset($_GET["tpuf"])) {
             $info = curl_getinfo($ch);
 
             if ($http_code !== 200) {
-                die("HTTP error for $url: " . $http_code . " " . $response . "\n  for query $content <xmp>" . print_r(debug_backtrace(), true) . "</xmp>");
+                die("HTTP error for $url: " . $http_code . " " . $response . "\n  for query $content <xmp>" . print_r(trace(), true) . "</xmp>");
             }
 
             $error = curl_error($ch);
             curl_close($ch);
 
             if ($error) {
-                die("CURL error for $url: " . $error . " " . $response . "\n  for query $content <xmp>" . print_r(debug_backtrace(), true) . "</xmp>");
+                die("CURL error for $url: " . $error . " " . $response . "\n  for query $content <xmp>" . print_r(trace(), true) . "</xmp>");
             }
 
             return $response;
