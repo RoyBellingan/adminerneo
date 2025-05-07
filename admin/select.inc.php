@@ -517,8 +517,9 @@ if (!$columns && support("table")) {
 						$found_rows = ($is_group ? false : found_rows($table_status, $where));
 						if ($found_rows < max(1e4, 2 * ($page + 1) * $limit)) {
 							// slow with big tables
-							$result = slow_query(count_rows($TABLE, $where, $is_group, $group));
-							$found_rows = reset($result);
+							//$result = slow_query(count_rows($TABLE, $where, $is_group, $group));
+							//$found_rows = reset($result);
+							$found_rows = 0;
 						} else {
 							$exact_count = false;
 						}
